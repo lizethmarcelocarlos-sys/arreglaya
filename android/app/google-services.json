@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "460132687020",
+    "project_id": "arreglaya-ca595",
+    "storage_bucket": "arreglaya-ca595.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:460132687020:android:11657f3fffd4fad5e11309",
+        "android_client_info": {
+          "package_name": "com.example.arreglaya"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDAonKYHo5A8j9XklidbCkf9en9xL-I4tE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

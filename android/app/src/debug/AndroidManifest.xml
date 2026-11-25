@@ -4,4 +4,7 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Solo en la versión de depuración: deja hablar con el servidor de pagos local
+         por http (PAGOS_URL=http://IP-DE-LA-PC:3100). La versión final usa https. -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>

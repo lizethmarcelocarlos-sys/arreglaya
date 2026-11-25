@@ -64,6 +64,16 @@ El endpoint y las variables actuales están documentados en [Open-Meteo](https:/
 
 Entregables: `entregables/Actividad_03_ArreglaYa_API.pptx`, `entregables/prueba_telefono_clima.png`, `entregables/Actividad_03_ArreglaYa_60s.mp4` y `entregables/ArreglaYa_Actividad3.apk`. El MP4 dura aproximadamente 60 segundos y no tiene narración. El PPTX descargable conserva las diapositivas como imágenes para mantener su diseño; el texto no es editable y la versión editable sigue en el espacio de la presentación. La APK local es de depuración ARM64, versión `1.0.1+2002`, no una compilación firmada para publicación en Play Store, y se mantiene local en `entregables/` por su tamaño.
 
+## Pago con QR del Banco Económico (prueba)
+
+Una oferta aceptada se puede pagar con un QR del Banco Económico: botón **«Pagar con QR»** en la tarjeta de la oferta. Las claves del banco no van en la app. Las guarda un servidor Node.js aparte, en [`servidor-pagos/`](servidor-pagos/LEEME.md). La app se compila con su dirección:
+
+```powershell
+flutter build apk --debug --dart-define=PAGOS_URL=http://IP-DE-LA-PC:3100
+```
+
+Sin `PAGOS_URL` el botón no aparece. Por defecto el servidor cobra **Bs 1** por QR (`MONTO_PRUEBA=1`), para probar sin pagar el precio de la oferta. Ver [`servidor-pagos/LEEME.md`](servidor-pagos/LEEME.md).
+
 ## Configurar otro proyecto de Supabase
 
 1. Crea un proyecto en [Supabase](https://supabase.com/dashboard).

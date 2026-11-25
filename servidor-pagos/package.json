@@ -1,0 +1,17 @@
+{
+  "name": "arreglaya-servidor-pagos",
+  "version": "1.0.0",
+  "description": "Cobros con QR del Banco Económico para ArreglaYa (sin dependencias, Node 18+)",
+  "main": "servidor.js",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node servidor.js",
+    "demo": "node servidor.js --falso",
+    "configurar": "node configurar.js",
+    "test": "node pruebas/pruebas.js"
+  }
+}

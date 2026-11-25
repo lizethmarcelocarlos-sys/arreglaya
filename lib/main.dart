@@ -12,6 +12,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'map_picker.dart';
+import 'pago_qr.dart';
 import 'technician_jobs.dart';
 import 'technician_map.dart';
 import 'technician_profile.dart';
@@ -1829,6 +1830,8 @@ class _OffersListState extends State<OffersList> {
                           TechnicianWhatsAppContact(
                             technicianId: o['technician_id'] as String,
                           ),
+                        if (o['status'] == 'aceptada')
+                          PagoQrBoton(ofertaId: o['id'] as int),
                         if (widget.requestOpen &&
                             !_accepted &&
                             o['status'] == 'pendiente')

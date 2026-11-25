@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prueba de pago · ArreglaYa</title>
+<style>
+  :root { --fondo: #f3f6f5; --tarjeta: #fff; --texto: #1d2b2a; --suave: #5b6b69; --borde: #dde5e4; --acento: #075E54; --ok: #1b7f3b; --mal: #b42318; --aviso: #fff4d6; }
+  @media (prefers-color-scheme: dark) { :root { --fondo: #121716; --tarjeta: #1b2221; --texto: #eaf1f0; --suave: #9fb0ae; --borde: #2c3735; --acento: #3fb59f; --ok: #4cc488; --mal: #ff7a6b; --aviso: #3a3220; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fondo); color: var(--texto); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 440px; margin: 32px auto; padding: 0 16px; }
+  .tarjeta { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 24px; text-align: center; }
+  h1 { font-size: 20px; margin: 0 0 4px; color: var(--acento); }
+  .suave { color: var(--suave); font-size: 14px; margin: 0; }
+  .banco { display: inline-block; margin: 12px 0 4px; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--aviso); }
+  .monto { font-size: 36px; font-weight: 800; margin: 12px 0 0; color: var(--acento); }
+  button { margin-top: 16px; width: 100%; padding: 12px; border: 0; border-radius: 10px; background: var(--acento); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+  button.secundario { background: transparent; color: var(--acento); border: 1px solid var(--borde); }
+  button:disabled { opacity: .55; cursor: default; }
+  #qr img { width: 100%; max-width: 280px; margin-top: 16px; background: #fff; border-radius: 12px; padding: 10px; border: 1px solid var(--borde); image-rendering: pixelated; }
+  #estado { font-weight: 600; margin-top: 12px; }
+  .ok { color: var(--ok); } .mal { color: var(--mal); }
+  .check { font-size: 72px; line-height: 1; color: var(--ok); margin-top: 8px; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; text-align: left; margin: 16px 0 0; font-size: 14px; }
+  dt { color: var(--suave); } dd { margin: 0; font-weight: 600; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="tarjeta">
+    <h1>Prueba de pago con QR</h1>
+    <p class="suave">Servidor de pagos de ArreglaYa · Banco Económico</p>
+    <div class="banco" id="banco">…</div>
+
+    <section id="inicio">
+      <div class="monto" id="montoInicio">Bs 1.00</div>
+      <p class="suave">Se genera un QR de verdad. Pagalo con la app de tu banco desde el celular.</p>
+      <button id="generar">Generar QR</button>
+    </section>
+
+    <section id="qr" hidden>
+      <div class="monto" id="montoQr"></div>
+      <img id="imagen" alt="QR para pagar">
+      <div id="estado">Esperando el pago…</div>
+      <p class="suave" id="vence"></p>
+      <button id="simular" class="secundario" hidden>Simular pago (banco de mentira)</button>
+      <button id="otroQr" hidden>Generar otro QR</button>
+    </section>
+
+    <section id="pagado" hidden>
+      <div class="check">✓</div>
+      <div class="monto ok" id="montoPagado"></div>
+      <div class="ok" style="font-weight:700;font-size:20px">¡Pagado!</div>
+      <p class="suave">El Banco Económico confirmó el pago.</p>
+      <dl id="detalle"></dl>
+      <button id="otra" class="secundario">Hacer otra prueba</button>
+    </section>
+
+    <section id="error" hidden>
+      <p class="mal" id="errorTexto"></p>
+      <button id="reintentar">Reintentar</button>
+    </section>
+  </div>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const bs = (n) => 'Bs ' + Number(n).toFixed(2);
+  const ver = (id) => { for (const s of ['inicio', 'qr', 'pagado', 'error']) $(s).hidden = s !== id; };
+  let info = { monto: 1, demo: false };
+  let cobro = null;
+  let reloj = null;
+
+  async function cargarInfo() {
+    info = await (await fetch('/prueba/info')).json();
+    $('banco').textContent = info.banco === 'produccion' ? 'Producción: plata real'
+      : info.banco === 'pruebas' ? 'Servidor de pruebas del banco' : 'Banco de mentira (sin plata)';
+    $('montoInicio').textContent = bs(info.monto);
+    $('generar').textContent = 'Generar QR de ' + bs(info.monto);
+  }
+
+  async function generar() {
+    $('generar').disabled = true;
+    try {
+      const r = await fetch('/prueba/cobro', { method: 'POST' });
+      const c = await r.json();
+      if (!r.ok) throw new Error(c.error || 'No se pudo generar el QR');
+      cobro = c;
+      $('imagen').src = 'data:image/png;base64,' + c.imagen;
+      $('montoQr').textContent = bs(c.monto);
+      $('estado').textContent = 'Esperando el pago…';
+      $('estado').className = '';
+      $('simular').hidden = !info.demo;
+      $('otroQr').hidden = true;
+      ver('qr');
+      clearInterval(reloj);
+      reloj = setInterval(revisar, 3000);
+      contar();
+    } catch (e) {
+      $('errorTexto').textContent = e.message;
+      ver('error');
+    } finally {
+      $('generar').disabled = false;
+    }
+  }
+
+  function contar() {
+    if (!cobro) return;
+    const s = Math.round((new Date(cobro.venceEn) - Date.now()) / 1000);
+    $('vence').textContent = s > 0 ? 'Vence en ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : 'Venciendo…';
+  }
+  setInterval(contar, 1000);
+
+  async function revisar() {
+    if (!cobro) return;
+    try {
+      const c = await (await fetch('/prueba/cobro/' + cobro.id)).json();
+      if (c.estado === 'pagado') {
+        clearInterval(reloj);
+        $('montoPagado').textContent = bs(c.monto);
+        const p = c.pago || {};
+        const filas = [
+          ['Cobro', c.id],
+          ['Pagó', p.nombre || '—'],
+          ['Fecha y hora', [p.fecha && String(p.fecha).slice(0, 10), p.hora].filter(Boolean).join(' ') || '—'],
+          ['Confirmado por', { pantalla: 'la consulta al banco', revision: 'la revisión de cada minuto', aviso: 'el aviso del banco' }[c.confirmadoPor] || c.confirmadoPor],
+        ];
+        $('detalle').innerHTML = '';
+        for (const [k, v] of filas) {
+          const dt = document.createElement('dt'); dt.textContent = k;
+          const dd = document.createElement('dd'); dd.textContent = v;
+          $('detalle').append(dt, dd);
+        }
+        cobro = null;
+        ver('pagado');
+      } else if (c.estado === 'vencido') {
+        clearInterval(reloj);
+        $('estado').textContent = 'El QR venció sin pagarse (ya está anulado en el banco).';
+        $('estado').className = 'mal';
+        $('simular').hidden = true;
+        $('otroQr').hidden = false;
+        cobro = null;
+        $('vence').textContent = '';
+      }
+    } catch { /* se vuelve a intentar en 3 s */ }
+  }
+
+  $('generar').addEventListener('click', generar);
+  $('otroQr').addEventListener('click', generar);
+  $('reintentar').addEventListener('click', () => ver('inicio'));
+  $('otra').addEventListener('click', () => ver('inicio'));
+  $('simular').addEventListener('click', async () => {
+    if (!cobro) return;
+    await fetch('/demo/pagar/' + cobro.id, { method: 'POST', redirect: 'manual' });
+    revisar();
+  });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) revisar(); });
+  cargarInfo().catch(() => { $('banco').textContent = 'No se pudo leer el servidor'; });
+</script>
+</body>
+</html>

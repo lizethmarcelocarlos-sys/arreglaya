@@ -38,6 +38,18 @@ node servidor.js
 
 Al prender muestra las direcciones de la PC, por ejemplo `--dart-define=PAGOS_URL=http://192.168.1.50:3100`. Usá la del Wi-Fi. La primera vez Windows pregunta si deja entrar conexiones a Node.js: aceptá en **redes privadas**.
 
+## Probar con plata real sin la app
+
+Con el servidor prendido, abrí **http://localhost:3100/prueba** en la PC. El botón genera un QR real por el monto de prueba (Bs 1). Pagalo con la app de tu banco desde el celular y la página pasa sola a **«¡Pagado!»**. Esta página solo responde desde la misma PC: nadie más del Wi-Fi puede generar QR.
+
+Para traer los datos del banco de una tienda que ya cobra con el Banco Económico, sin verlos ni copiarlos a mano:
+
+```
+node configurar.js --ssh root@IP-DEL-SERVIDOR:/ruta/de/la/tienda/.env
+```
+
+Trae solo las líneas BANECO_ y las prueba antes de guardarlas. Al terminar la prueba: `node configurar.js --borrar`.
+
 ## 4. Compilar la app con el pago
 
 El celular tiene que estar en el **mismo Wi-Fi** que la PC.
@@ -66,14 +78,15 @@ Los QR valen 10 minutos (`QR_VIDA_MINUTOS`). Pasado ese tiempo se anulan en el b
 npm test
 ```
 
-Son 24 pruebas contra un banco falso y un Supabase falso: permisos, cobro, los tres caminos, vencimiento, monto de prueba. No usan internet ni plata.
+Son 29 pruebas contra un banco falso y un Supabase falso: permisos, cobro, los tres caminos, vencimiento, monto de prueba y la página de prueba. No usan internet ni plata.
 
 ## Archivos
 
 | Archivo | Para qué |
 | --- | --- |
 | `servidor.js` | El servidor (cobros, consulta, aviso del banco, revisión de cada minuto). |
-| `configurar.js` | Pide, prueba y guarda los datos del banco. |
+| `configurar.js` | Pide (o trae por SSH), prueba y guarda los datos del banco. `--borrar` los quita. |
+| `prueba.html` | Página de prueba en http://localhost:3100/prueba (solo desde la PC). |
 | `src/baneco.js` | El conector del Banco Económico (el mismo del paquete genérico). |
 | `pruebas/` | Banco falso y pruebas automáticas. |
 | `datos/cobros.json` | Se crea solo: los cobros. No se sube a GitHub. |

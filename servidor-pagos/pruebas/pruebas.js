@@ -224,6 +224,43 @@ function iniciarSupabaseFalso() {
     await b.cerrar();
   });
 
+  console.log('Página de prueba (sin app)');
+  await prueba('desde esta PC abre la página', async () => {
+    const r = await fetch(`${base}/prueba`);
+    igual(r.status, 200);
+    cierto((await r.text()).includes('Prueba de pago con QR'));
+  });
+  await prueba('genera un QR por el monto de prueba y se entera del pago', async () => {
+    const info = await (await fetch(`${base}/prueba/info`)).json();
+    igual(info.monto, 1);
+    const c = await (await fetch(`${base}/prueba/cobro`, { method: 'POST' })).json();
+    igual(c.monto, 1);
+    cierto(c.imagen && c.imagen.length > 10, 'falta la imagen');
+    falso.pagar(s.almacen.buscar(c.id).qrId);
+    const e = await (await fetch(`${base}/prueba/cobro/${c.id}`)).json();
+    igual(e.estado, 'pagado');
+  });
+  await prueba('con MONTO_PRUEBA=0 la página igual cobra Bs 1 (nunca un monto grande)', async () => {
+    const s5 = await servidor({ montoPrueba: 0 });
+    const c = await (await fetch(`http://127.0.0.1:${s5.puerto}/prueba/cobro`, { method: 'POST' })).json();
+    igual(c.monto, 1);
+    await s5.cerrar();
+  });
+  await prueba('no deja ver por la página un cobro hecho desde la app', async () => {
+    igual((await fetch(`${base}/prueba/cobro/${cobro.id}`)).status, 404);
+  });
+  const ipRed = Object.values(os.networkInterfaces()).flat().find((i) => i && i.family === 'IPv4' && !i.internal);
+  if (ipRed) {
+    await prueba('desde otro equipo de la red la página se niega (403)', async () => {
+      const s6 = await servidor({ host: '0.0.0.0' });
+      const r1 = await fetch(`http://${ipRed.address}:${s6.puerto}/prueba`);
+      const r2 = await fetch(`http://${ipRed.address}:${s6.puerto}/prueba/cobro`, { method: 'POST' });
+      igual(r1.status, 403);
+      igual(r2.status, 403);
+      await s6.cerrar();
+    });
+  }
+
   await s.cerrar();
   await falso.cerrar();
   await supa.cerrar();

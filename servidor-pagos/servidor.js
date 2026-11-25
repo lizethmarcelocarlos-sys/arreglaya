@@ -71,6 +71,8 @@ function responder(res, status, cuerpo, tipo = 'application/json') {
   res.end(tipo === 'application/json' ? JSON.stringify(cuerpo) : cuerpo);
 }
 
+const esLocal = (req) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+
 // Del pago que informa el banco se guarda solo lo necesario para mostrarlo
 const resumenPago = (p) => (p ? {
   monto: p.amount ?? null, fecha: p.paymentDate ?? null, hora: p.paymentTime ?? null,
@@ -221,6 +223,20 @@ function iniciarServidor({
     return vista(c, true);
   }
 
+  // Cobro de la página de prueba (sin app ni oferta): siempre por el monto de prueba, Bs 1 si no hay otro
+  async function crearCobroPrueba() {
+    const monto = montoPrueba > 0 ? montoPrueba : 1;
+    const id = `AY${Date.now().toString(36).toUpperCase()}${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+    const descripcion = 'ArreglaYa prueba de pago';
+    const qr = await banco.generarQR({ monto, descripcion, idTransaccion: id });
+    const c = almacen.guardar({
+      id, ofertaId: null, solicitudId: null, usuarioId: 'prueba-local', origen: 'prueba', qrId: qr.qrId,
+      monto, precioOferta: monto, descripcion, estado: 'pendiente', creado: new Date().toISOString(), imagen: qr.imagenBase64,
+    });
+    console.log(`🧾 Cobro ${id} creado desde la página de prueba · Bs ${monto}`);
+    return vista(c, true);
+  }
+
   function conBloqueo(clave, fn) {
     const antes = bloqueos.get(clave) || Promise.resolve();
     const ahora = antes.catch(() => {}).then(fn);
@@ -286,7 +302,8 @@ td,th{border-bottom:1px solid #dde5e4;padding:8px;text-align:left}.pagado{color:
 .vencido{color:#8a8f8e}.pendiente{color:#b26a00;font-weight:600}button{background:#075E54;color:#fff;border:0;border-radius:6px;padding:6px 10px;cursor:pointer}
 </style></head><body><h1>Servidor de pagos ArreglaYa</h1>
 <p>Prendido · cobra con: <b>${esc(bancoTxt)}</b> · ${montoPrueba > 0 ? `<b>modo prueba: cada QR sale por Bs ${esc(montoPrueba)}</b>` : 'cobra el precio de la oferta'} · los QR valen ${esc(vidaMin)} min</p>
-${cobros.length ? `<table><tr><th>Cobro</th><th>Monto</th><th>Estado</th><th>Creado</th><th>Confirmado por</th><th></th></tr>${filas}</table>` : '<p>Todavía no hay cobros. Pedí uno desde la app: oferta aceptada → «Pagar con QR».</p>'}
+<p><a href="/prueba">Página de prueba</a>: genera un QR sin la app (solo desde esta PC).</p>
+${cobros.length ? `<table><tr><th>Cobro</th><th>Monto</th><th>Estado</th><th>Creado</th><th>Confirmado por</th><th></th></tr>${filas}</table>` : '<p>Todavía no hay cobros. Pedí uno desde la app (oferta aceptada → «Pagar con QR») o desde la página de prueba.</p>'}
 </body></html>`;
   }
 
@@ -296,6 +313,27 @@ ${cobros.length ? `<table><tr><th>Cobro</th><th>Monto</th><th>Estado</th><th>Cre
       if (req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
       if (req.method === 'GET' && url.pathname === '/') return responder(res, 200, paginaInicio(), 'text/html');
       if (req.method === 'GET' && url.pathname === '/salud') return responder(res, 200, { ok: true, montoPrueba, vidaMin });
+
+      // ── Página de prueba: solo desde esta PC (si no, cualquiera en el Wi-Fi podría generar QR) ──
+      if (url.pathname === '/prueba' || url.pathname.startsWith('/prueba/')) {
+        if (!esLocal(req)) throw new ErrorHttp(403, 'La página de prueba solo se abre desde la PC del servidor.');
+        if (req.method === 'GET' && url.pathname === '/prueba') {
+          return responder(res, 200, fs.readFileSync(path.join(__dirname, 'prueba.html'), 'utf8'), 'text/html');
+        }
+        if (req.method === 'GET' && url.pathname === '/prueba/info') {
+          const tipo = banco.url === URL_PRODUCCION ? 'produccion' : banco.url === URL_PRUEBAS ? 'pruebas' : 'otro';
+          return responder(res, 200, { banco: demo ? 'falso' : tipo, monto: montoPrueba > 0 ? montoPrueba : 1, vidaMin, demo: !!demo });
+        }
+        if (req.method === 'POST' && url.pathname === '/prueba/cobro') return responder(res, 200, await crearCobroPrueba());
+        const mp = url.pathname.match(/^\/prueba\/cobro\/(AY[A-Z0-9]+)$/);
+        if (req.method === 'GET' && mp) {
+          const c = almacen.buscar(mp[1]);
+          if (!c || c.origen !== 'prueba') throw new ErrorHttp(404, 'No existe ese cobro.');
+          await consultar(c);
+          return responder(res, 200, vista(c));
+        }
+        throw new ErrorHttp(404, 'No existe');
+      }
 
       // La app pide el QR de una oferta aceptada
       if (req.method === 'POST' && url.pathname === '/api/pagos') {

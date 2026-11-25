@@ -125,13 +125,21 @@ async function aMano() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: !!process.stdin.isTTY });
   let ocultar = false;
   const eco = rl._writeToOutput.bind(rl);
-  rl._writeToOutput = (s) => { if (!ocultar) eco(s); };
+  rl._writeToOutput = (s) => {
+    if (!ocultar) return eco(s);
+    // Oculto: si la terminal redibuja la línea, se muestra la pregunta pero no lo escrito
+    const p = rl.getPrompt();
+    if (s.startsWith(p)) eco(p);
+  };
   const cola = [];
   let espera = null;
   rl.on('line', (l) => { if (espera) { const r = espera; espera = null; r(l); } else cola.push(l); });
   rl.on('close', () => { if (espera) { console.log('\nSe cortó la entrada: no se guardó nada.'); process.exit(1); } });
   const preguntar = (q, oculto = false) => new Promise((res) => {
-    process.stdout.write(q);
+    // La pregunta va como «prompt» de readline: así no la tapa un «>» si la terminal redibuja la línea
+    ocultar = false;
+    rl.setPrompt(q);
+    if (process.stdin.isTTY) rl.prompt(); else process.stdout.write(q);
     ocultar = oculto;
     const tomar = (a) => { ocultar = false; if (oculto) process.stdout.write('\n'); res(a.replace(/[\u0000-\u001f\u007f\u200b-\u200d\ufeff]/g, '').trim()); };
     if (cola.length) tomar(cola.shift()); else espera = tomar;

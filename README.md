@@ -66,13 +66,11 @@ Entregables: `entregables/Actividad_03_ArreglaYa_API.pptx`, `entregables/prueba_
 
 ## Pago con QR del Banco Económico (prueba)
 
-El trabajo se paga cuando está hecho: apenas el técnico lo marca como **completado**, el cliente ve **«Pagar el trabajo»** (en «Trabajo completado») y paga con un QR del Banco Económico. El servidor de pagos tampoco cobra antes de eso. Las claves del banco no van en la app. Las guarda un servidor Node.js aparte, en [`servidor-pagos/`](servidor-pagos/LEEME.md). La app se compila con su dirección:
+El trabajo se paga cuando está hecho: apenas el técnico lo marca como **completado**, el cliente ve **«Pagar el trabajo»** (en «Trabajo completado») y paga con un QR del Banco Económico.
 
-```powershell
-flutter build apk --debug --dart-define=PAGOS_URL=http://IP-DE-LA-PC:3100
-```
+El cobro lo hace la **Edge Function «pagos» del Supabase de ArreglaYa** ([`supabase/functions/pagos/`](supabase/functions/pagos/LEEME.md)). Está en internet: **el APK no depende de ninguna laptop** y no hace falta compilarlo con nada especial. Las claves del banco son secretos de Supabase; no van en la app ni en GitHub. La función tampoco cobra si el trabajo no está completado. Hoy cobra **Bs 1** por QR (`MONTO_PRUEBA=1`).
 
-Sin `PAGOS_URL` el botón no aparece. Por defecto el servidor cobra **Bs 1** por QR (`MONTO_PRUEBA=1`), para probar sin pagar el precio de la oferta. Ver [`servidor-pagos/LEEME.md`](servidor-pagos/LEEME.md).
+`servidor-pagos/` (Node.js) queda para pruebas en una PC: `--dart-define=PAGOS_URL=http://IP-DE-LA-PC:3100/api/pagos`.
 
 ## Configurar otro proyecto de Supabase
 

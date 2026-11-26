@@ -6,11 +6,20 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Dirección del servidor de pagos (carpeta `servidor-pagos/`), por ejemplo
-/// `--dart-define=PAGOS_URL=http://192.168.1.50:3100`. Sin ella, el botón de pago no aparece.
+/// Dirección del cobro con QR. Por defecto es la Edge Function «pagos» del Supabase de ArreglaYa:
+/// está en internet, así que el APK funciona en cualquier celular y red, sin ninguna laptop.
+/// Para probar con el servidor-pagos de una PC:
+/// `--dart-define=PAGOS_URL=http://IP-DE-LA-PC:3100/api/pagos`.
 ///
 /// La app nunca habla con el banco: las claves del Banco Económico viven solo en el servidor.
-const pagosUrl = String.fromEnvironment('PAGOS_URL');
+const _supabaseUrlPagos = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: 'https://prdzxcybmcxprzjsovuy.supabase.co',
+);
+const pagosUrl = String.fromEnvironment(
+  'PAGOS_URL',
+  defaultValue: '$_supabaseUrlPagos/functions/v1/pagos',
+);
 
 class PagoQrError implements Exception {
   const PagoQrError(this.mensaje);
@@ -84,20 +93,19 @@ class PagosApi {
 
   bool get configurado => base.isNotEmpty;
 
-  /// Pide el QR de una oferta aceptada (o devuelve el que sigue vigente).
+  /// Pide el QR del trabajo terminado (o devuelve el que sigue vigente).
   Future<Cobro> crear(int ofertaId) => _pedir(
     'POST',
-    '/api/pagos',
+    '',
     cuerpo: {'ofertaId': ofertaId},
     espera: const Duration(seconds: 45),
   );
 
   /// ¿Ya se pagó?
-  Future<Cobro> estado(String cobroId) => _pedir('GET', '/api/pagos/$cobroId');
+  Future<Cobro> estado(String cobroId) => _pedir('GET', '/$cobroId');
 
-  /// Estado del pago de una oferta, para la tarjeta de la oferta.
-  Future<Cobro> deOferta(int ofertaId) =>
-      _pedir('GET', '/api/pagos/oferta/$ofertaId');
+  /// Estado del pago de una oferta.
+  Future<Cobro> deOferta(int ofertaId) => _pedir('GET', '/oferta/$ofertaId');
 
   Future<Cobro> _pedir(
     String metodo,
@@ -107,7 +115,7 @@ class PagosApi {
   }) async {
     final token = await _token();
     if (token == null || token.isEmpty) {
-      throw const PagoQrError('Tu sesión venció. Volvé a iniciar sesión.');
+      throw const PagoQrError('Tu sesión venció. Vuelve a iniciar sesión.');
     }
     final uri = Uri.parse('$base$ruta');
     final headers = {
@@ -122,12 +130,12 @@ class PagosApi {
           .timeout(espera);
     } on TimeoutException {
       throw const PagoQrError(
-        'El servidor de pagos tardó demasiado en responder. Probá de nuevo.',
+        'El servidor de pagos tardó demasiado en responder. Prueba de nuevo.',
       );
     } catch (_) {
       throw const PagoQrError(
-        'No se pudo conectar con el servidor de pagos. Revisá que esté prendido '
-        'y que el celular esté en la misma red Wi-Fi que la PC.',
+        'No se pudo conectar con el servidor de pagos. Revisa tu conexión a '
+        'internet y prueba de nuevo.',
       );
     }
     final Object? j;

@@ -1,5 +1,7 @@
 # Servidor de pagos de ArreglaYa (QR del Banco Económico)
 
+> **La app ya no usa este servidor por defecto:** el cobro está en la Edge Function de Supabase ([`supabase/functions/pagos/`](../supabase/functions/pagos/LEEME.md)), que vive en internet. Este servidor Node.js queda para probar en una PC (y su página `/prueba`). Para que la app lo use: `--dart-define=PAGOS_URL=http://IP-DE-LA-PC:3100/api/pagos`.
+
 La app cobra el trabajo, cuando el técnico lo marca como completado, con un QR del Banco Económico. Las claves del banco **no pueden ir dentro de la app**: cualquiera que abra el APK las sacaría. Por eso hay este servidorcito Node.js. Solo él habla con el banco. La app le pide el QR y le pregunta si ya se pagó.
 
 ```
@@ -55,7 +57,7 @@ Trae solo las líneas BANECO_ y las prueba antes de guardarlas. Al terminar la p
 El celular tiene que estar en el **mismo Wi-Fi** que la PC.
 
 ```
-flutter build apk --debug --dart-define=PAGOS_URL=http://IP-DE-LA-PC:3100
+flutter build apk --debug --dart-define=PAGOS_URL=http://IP-DE-LA-PC:3100/api/pagos
 ```
 
 En la app: el técnico marca el trabajo como **completado** → el cliente abre la solicitud → en «Trabajo completado» aparece **«Pagar el trabajo»** → **«Pagar con QR»**. Aparece el QR. Págalo con la app de cualquier banco, desde otro celular o con una captura desde el mismo. A los segundos dice **«¡Pagado!»** y la solicitud queda en «Pagado con QR».

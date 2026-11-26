@@ -194,4 +194,64 @@ void main() {
       expect(find.text('Pagar con QR'), findsNothing);
     });
   });
+
+  group('pagar el trabajo terminado', () {
+    Widget caja(PagosApi api, Future<OfertaAPagar?> Function(int) cargar) =>
+        MaterialApp(
+          home: Scaffold(
+            body: PagoAlTecnico(requestId: 3, api: api, cargarOferta: cargar),
+          ),
+        );
+
+    testWidgets('muestra el monto, el técnico y «Pagar con QR»', (tester) async {
+      int? pedida;
+      await tester.pumpWidget(
+        caja(_api(MockClient((r) async => _json({'estado': 'sin_cobro'}))), (
+          id,
+        ) async {
+          pedida = id;
+          return const OfertaAPagar(id: 7, precio: 150, tecnico: 'Luis');
+        }),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(pedida, 3);
+      expect(find.text('Pagar el trabajo'), findsOneWidget);
+      expect(find.textContaining('Paga Bs 150.00 a Luis'), findsOneWidget);
+      expect(find.text('Pagar con QR'), findsOneWidget);
+    });
+
+    testWidgets('si ya se pagó, dice «Pagado»', (tester) async {
+      await tester.pumpWidget(
+        caja(
+          _api(MockClient((r) async => _json(_cobro('pagado')))),
+          (_) async => const OfertaAPagar(id: 7, precio: 150),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Pagado con QR · Bs 1.00'), findsOneWidget);
+    });
+
+    testWidgets('sin oferta aceptada no muestra nada', (tester) async {
+      await tester.pumpWidget(
+        caja(_api(MockClient((r) async => _json({}))), (_) async => null),
+      );
+      await tester.pump();
+      expect(find.text('Pagar el trabajo'), findsNothing);
+    });
+
+    testWidgets('sin PAGOS_URL no muestra nada', (tester) async {
+      final api = PagosApi(
+        base: '',
+        cliente: MockClient((r) async => _json({})),
+        token: () async => 't',
+      );
+      await tester.pumpWidget(
+        caja(api, (_) async => const OfertaAPagar(id: 7, precio: 150)),
+      );
+      await tester.pump();
+      expect(find.text('Pagar el trabajo'), findsNothing);
+    });
+  });
 }

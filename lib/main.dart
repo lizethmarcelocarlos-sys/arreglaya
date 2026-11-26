@@ -1517,6 +1517,9 @@ class _ClientServiceProgressState extends State<ClientServiceProgress> {
               ),
               subtitle: Text(subtitle),
             ),
+            // El trabajo se paga cuando el técnico lo marca como completado
+            if (stage == 'completado')
+              PagoAlTecnico(requestId: widget.requestId),
             if (stage == 'completado')
               ReviewSection(requestId: widget.requestId),
           ],
@@ -1830,8 +1833,6 @@ class _OffersListState extends State<OffersList> {
                           TechnicianWhatsAppContact(
                             technicianId: o['technician_id'] as String,
                           ),
-                        if (o['status'] == 'aceptada')
-                          PagoQrBoton(ofertaId: o['id'] as int),
                         if (widget.requestOpen &&
                             !_accepted &&
                             o['status'] == 'pendiente')

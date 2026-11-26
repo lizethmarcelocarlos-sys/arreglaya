@@ -27,9 +27,13 @@ const TECNICO = 'cccccccc-0000-0000-0000-000000000003';
 const TOKENS = { 'token-cliente': CLIENTE, 'token-otro': OTRO };
 const ofertas = new Map();
 let ofertaSiguiente = 1;
-function nuevaOferta({ precio = 150, estado = 'aceptada', cliente = CLIENTE } = {}) {
+// Por defecto el trabajo ya está completado (es cuando se paga)
+function nuevaOferta({ precio = 150, estado = 'aceptada', cliente = CLIENTE, trabajo = 'completado' } = {}) {
   const id = ofertaSiguiente++;
-  ofertas.set(id, { id, price: precio, status: estado, request_id: 100 + id, technician_id: TECNICO, service_requests: { client_id: cliente, category: 'Plomería' } });
+  ofertas.set(id, {
+    id, price: precio, status: estado, request_id: 100 + id, technician_id: TECNICO,
+    service_requests: { client_id: cliente, category: 'Plomería', status: trabajo === 'completado' ? 'completada' : 'aceptada', work_stage: trabajo },
+  });
   return id;
 }
 function iniciarSupabaseFalso() {
@@ -88,6 +92,13 @@ function iniciarSupabaseFalso() {
   });
   await prueba('la oferta de otro cliente no se puede pagar: 404', async () => igual((await pedir('POST', '/api/pagos', { token: 'token-otro', cuerpo: { ofertaId: oferta } })).status, 404));
   await prueba('una oferta todavía pendiente no se puede pagar: 409', async () => igual((await pedir('POST', '/api/pagos', { cuerpo: { ofertaId: nuevaOferta({ estado: 'pendiente' }) } })).status, 409));
+  await prueba('con el trabajo en proceso todavía no se cobra: 409 y lo explica', async () => {
+    for (const trabajo of [null, 'en_proceso']) {
+      const r = await pedir('POST', '/api/pagos', { cuerpo: { ofertaId: nuevaOferta({ trabajo }) } });
+      igual(r.status, 409, `trabajo ${trabajo}`);
+      cierto(/marcar el trabajo como completado/.test(r.cuerpo.error), r.cuerpo.error);
+    }
+  });
   await prueba('sin oferta: 400', async () => igual((await pedir('POST', '/api/pagos', { cuerpo: {} })).status, 400));
 
   console.log('Cobro');

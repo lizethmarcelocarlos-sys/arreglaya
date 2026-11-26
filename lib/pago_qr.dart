@@ -150,7 +150,116 @@ class PagosApi {
   }
 }
 
-/// Va en la tarjeta de una oferta aceptada: «Pagar con QR», o «Pagado» si ya se pagó.
+/// La oferta aceptada de una solicitud: lo justo para pagarla.
+class OfertaAPagar {
+  const OfertaAPagar({required this.id, required this.precio, this.tecnico});
+
+  final int id;
+  final double precio;
+  final String? tecnico;
+}
+
+/// Busca en Supabase la oferta aceptada de la solicitud y el nombre del técnico.
+Future<OfertaAPagar?> cargarOfertaAceptada(int requestId) async {
+  final db = Supabase.instance.client;
+  final fila = await db
+      .from('offers')
+      .select('id, price, technician_id')
+      .eq('request_id', requestId)
+      .eq('status', 'aceptada')
+      .maybeSingle();
+  if (fila == null) return null;
+  String? tecnico;
+  try {
+    final perfil = await db
+        .from('profiles')
+        .select('full_name')
+        .eq('id', fila['technician_id'] as String)
+        .maybeSingle();
+    tecnico = perfil?['full_name'] as String?;
+  } catch (_) {
+    // Sin el nombre igual se puede pagar.
+  }
+  return OfertaAPagar(
+    id: fila['id'] as int,
+    precio: (fila['price'] as num).toDouble(),
+    tecnico: tecnico,
+  );
+}
+
+/// Aparece cuando el técnico marca el trabajo como completado: «Pagar el trabajo»
+/// con QR del Banco Económico (el servidor tampoco cobra antes de eso).
+class PagoAlTecnico extends StatefulWidget {
+  const PagoAlTecnico({
+    super.key,
+    required this.requestId,
+    this.api,
+    this.cargarOferta,
+  });
+
+  final int requestId;
+  final PagosApi? api;
+
+  /// Para las pruebas; por defecto lee la oferta aceptada de Supabase.
+  final Future<OfertaAPagar?> Function(int requestId)? cargarOferta;
+
+  @override
+  State<PagoAlTecnico> createState() => _PagoAlTecnicoState();
+}
+
+class _PagoAlTecnicoState extends State<PagoAlTecnico> {
+  late final PagosApi _api = widget.api ?? PagosApi();
+  late final Future<OfertaAPagar?> _oferta =
+      (widget.cargarOferta ?? cargarOfertaAceptada)(widget.requestId);
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_api.configurado) return const SizedBox.shrink();
+    return FutureBuilder<OfertaAPagar?>(
+      future: _oferta,
+      builder: (context, snapshot) {
+        final oferta = snapshot.data;
+        if (oferta == null) return const SizedBox.shrink();
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(top: 8, bottom: 4),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF075E54).withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: const Color(0xFF075E54).withValues(alpha: 0.25),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.payments_outlined, color: Color(0xFF075E54)),
+                  SizedBox(width: 8),
+                  Text(
+                    'Pagar el trabajo',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                oferta.tecnico == null
+                    ? 'El trabajo está terminado. Paga ${bs(oferta.precio)} con QR del Banco Económico.'
+                    : 'El trabajo está terminado. Paga ${bs(oferta.precio)} a ${oferta.tecnico} con QR del Banco Económico.',
+              ),
+              PagoQrBoton(ofertaId: oferta.id, api: _api),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// «Pagar con QR», o «Pagado» si ya se pagó.
 class PagoQrBoton extends StatefulWidget {
   const PagoQrBoton({super.key, required this.ofertaId, this.api});
 

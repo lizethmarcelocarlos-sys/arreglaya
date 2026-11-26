@@ -66,7 +66,7 @@ Entregables: `entregables/Actividad_03_ArreglaYa_API.pptx`, `entregables/prueba_
 
 ## Pago con QR del Banco Económico (prueba)
 
-Una oferta aceptada se puede pagar con un QR del Banco Económico: botón **«Pagar con QR»** en la tarjeta de la oferta. Las claves del banco no van en la app. Las guarda un servidor Node.js aparte, en [`servidor-pagos/`](servidor-pagos/LEEME.md). La app se compila con su dirección:
+El trabajo se paga cuando está hecho: apenas el técnico lo marca como **completado**, el cliente ve **«Pagar el trabajo»** (en «Trabajo completado») y paga con un QR del Banco Económico. El servidor de pagos tampoco cobra antes de eso. Las claves del banco no van en la app. Las guarda un servidor Node.js aparte, en [`servidor-pagos/`](servidor-pagos/LEEME.md). La app se compila con su dirección:
 
 ```powershell
 flutter build apk --debug --dart-define=PAGOS_URL=http://IP-DE-LA-PC:3100

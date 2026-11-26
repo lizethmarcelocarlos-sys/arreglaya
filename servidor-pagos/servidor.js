@@ -138,13 +138,18 @@ function iniciarServidor({
 
   async function ofertaPagable(ofertaId, { usuarioId, token }) {
     const filas = await supabase(
-      `/rest/v1/offers?id=eq.${ofertaId}&select=id,price,status,request_id,service_requests(client_id,category)`,
+      `/rest/v1/offers?id=eq.${ofertaId}&select=id,price,status,request_id,service_requests(client_id,category,status,work_stage)`,
       token,
     );
     const o = Array.isArray(filas) ? filas[0] : null;
     // RLS de Supabase ya esconde las ofertas ajenas; igual se revisa que la solicitud sea de este usuario
     if (!o || !o.service_requests || o.service_requests.client_id !== usuarioId) throw new ErrorHttp(404, 'No encontramos esa oferta entre tus solicitudes.');
     if (o.status !== 'aceptada') throw new ErrorHttp(409, 'Solo se puede pagar una oferta aceptada.');
+    // Se paga cuando el trabajo está hecho: el técnico lo marca como completado desde su app
+    const s = o.service_requests;
+    if (s.status !== 'completada' && s.work_stage !== 'completado') {
+      throw new ErrorHttp(409, 'Todavía no se puede pagar: el técnico tiene que marcar el trabajo como completado.');
+    }
     const precio = Math.round(Number(o.price) * 100) / 100;
     if (!(precio > 0)) throw new ErrorHttp(409, 'La oferta no tiene un precio válido.');
     return { id: o.id, precio, solicitudId: o.request_id, categoria: o.service_requests.category || 'Servicio' };
